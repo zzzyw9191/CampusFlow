@@ -49,7 +49,7 @@
 
 .notice-fields {
   display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr;
+  grid-template-columns: 1fr 2fr;
   gap: 20px;
   margin-bottom: 24px;
 }
@@ -63,15 +63,24 @@
   font-weight: 500;
 }
 
-.notice-fields input {
+.notice-fields input,
+.notice-fields textarea {
   width: 100%;
   min-width: 0;
-  height: 44px;
   padding: 10px 12px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   color: #1e293b;
   background: #fff;
+}
+
+.notice-fields input {
+  height: 44px;
+}
+
+.notice-fields textarea {
+  min-height: 88px;
+  resize: vertical;
 }
 
 .panel button {
@@ -87,7 +96,19 @@
   background: #1d4ed8;
 }
 
+.panel button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.submit-status {
+  display: inline-block;
+  margin: 0 0 0 16px;
+  color: #64748b;
+}
+
 .notice-fields input:focus-visible,
+.notice-fields textarea:focus-visible,
 .panel button:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 3px;
@@ -113,5 +134,10 @@
 
   .notice-fields {
     grid-template-columns: 1fr;
+  }
+
+  .submit-status {
+    display: block;
+    margin: 12px 0 0;
   }
 }

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import './App.css'
 
 type BackendStatus = 'checking' | 'online' | 'offline'
+type SubmitStatus = 'idle' | 'sending' | 'success' | 'error'
 
 const statusText: Record<BackendStatus, string> = {
   checking: '正在检查后端连接...',
@@ -11,6 +12,9 @@ const statusText: Record<BackendStatus, string> = {
 
 function App() {
   const [backendStatus, setBackendStatus] = useState<BackendStatus>('checking')
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle')
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -31,6 +35,28 @@ function App() {
     void checkBackend()
   }, [])
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setSubmitStatus('sending')
+
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || data.title !== title || data.content !== content) {
+        throw new Error('Unexpected notification response')
+      }
+
+      setSubmitStatus('success')
+    } catch {
+      setSubmitStatus('error')
+    }
+  }
+
   return (
     <main className="campus-flow">
       <header className="page-header">
@@ -45,22 +71,43 @@ function App() {
 
       <section className="panel" aria-labelledby="add-notice-heading">
         <h2 id="add-notice-heading">添加通知</h2>
-        <div className="notice-fields">
-          <label htmlFor="notice-title">
-            标题
-            <input id="notice-title" name="title" type="text" placeholder="输入通知标题" />
-          </label>
-          <label htmlFor="notice-course">
-            课程
-            <input id="notice-course" name="course" type="text" placeholder="输入课程名称" />
-          </label>
-          <label htmlFor="notice-deadline">
-            截止日期
-            <input id="notice-deadline" name="deadline" type="date" />
-          </label>
-        </div>
-        {/* 0.1-A 只展示界面，按钮暂不绑定事件。 */}
-        <button type="button">添加通知</button>
+        <form onSubmit={handleSubmit}>
+          <div className="notice-fields">
+            <label htmlFor="notice-title">
+              标题
+              <input
+                id="notice-title"
+                name="title"
+                type="text"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="输入通知标题"
+                required
+              />
+            </label>
+            <label htmlFor="notice-content">
+              内容
+              <textarea
+                id="notice-content"
+                name="content"
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="输入通知内容"
+                required
+              />
+            </label>
+          </div>
+          <button type="submit" disabled={submitStatus === 'sending'}>
+            添加通知
+          </button>
+          {submitStatus !== 'idle' && (
+            <p className="submit-status" aria-live="polite">
+              {submitStatus === 'sending' && '正在发送通知...'}
+              {submitStatus === 'success' && '通知发送成功'}
+              {submitStatus === 'error' && '通知发送失败'}
+            </p>
+          )}
+        </form>
       </section>
 
       <section className="panel" aria-labelledby="notice-list-heading">
