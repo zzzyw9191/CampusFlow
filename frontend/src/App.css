@@ -19,6 +19,21 @@
   color: #64748b;
 }
 
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 14px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.connection-status span {
+  color: #64748b;
+}
+
 .panel {
   margin-bottom: 24px;
   padding: 28px;
