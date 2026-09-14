@@ -4,8 +4,18 @@ import './App.css'
 type BackendStatus = 'checking' | 'online' | 'offline'
 type SubmitStatus = 'idle' | 'sending' | 'success' | 'error'
 type Notification = {
+  id: number
   title: string
   content: string
+  createdAt: string
+}
+
+const formatCreatedAt = (createdAt: string) => {
+  const date = new Date(createdAt.replace(' ', 'T') + 'Z')
+
+  return date.toLocaleString('zh-CN', {
+    hour12: false,
+  })
 }
 
 const statusText: Record<BackendStatus, string> = {
@@ -73,7 +83,7 @@ function App() {
     }
 
     setSubmitStatus('success')
-    setNotifications((prev) => [...prev, data])
+    setNotifications((prev) => [data, ...prev])
     setTitle('')
     setContent('')
     } catch {
@@ -141,10 +151,11 @@ function App() {
   <p className="empty-state">暂无通知</p>
 ) : (
   <ul>
-    {notifications.map((notification, index) => (
-      <li key={index}>
+    {notifications.map((notification) => (
+      <li key={notification.id}>
         <strong>{notification.title}</strong>
         <p>{notification.content}</p>
+        <small>{formatCreatedAt(notification.createdAt)}</small>
       </li>
     ))}
   </ul>

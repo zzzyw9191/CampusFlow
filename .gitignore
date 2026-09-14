@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Runtime SQLite database and sidecar files
+campusflow.db
+campusflow.db-journal
+campusflow.db-wal
+campusflow.db-shm
+
 # Environment files
 .env
 .env.*
