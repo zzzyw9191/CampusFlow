@@ -6,6 +6,7 @@ type NotificationBody = {
 }
 
 const app = Fastify()
+const notifications: NotificationBody[] = []
 
 app.get('/api/health', async () => ({
   status: 'ok',
@@ -13,7 +14,12 @@ app.get('/api/health', async () => ({
 }))
 
 app.post<{ Body: NotificationBody }>('/api/notifications', async (request) => {
-  return request.body
+    notifications.push(request.body)
+    return request.body
+})
+
+app.get('/api/notifications', async () => {
+    return notifications
 })
 
 try {

@@ -3,6 +3,10 @@ import './App.css'
 
 type BackendStatus = 'checking' | 'online' | 'offline'
 type SubmitStatus = 'idle' | 'sending' | 'success' | 'error'
+type Notification = {
+  title: string
+  content: string
+}
 
 const statusText: Record<BackendStatus, string> = {
   checking: '正在检查后端连接...',
@@ -15,6 +19,7 @@ function App() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [submitStatus, setSubmitStatus] = useState<SubmitStatus>('idle')
+  const [notifications, setNotifications] = useState<Notification[]>([])
 
   useEffect(() => {
     const checkBackend = async () => {
@@ -32,7 +37,23 @@ function App() {
       }
     }
 
+    const loadNotifications = async () => {
+  try {
+    const response = await fetch('/api/notifications')
+
+    if (!response.ok) {
+      throw new Error('Failed to load notifications')
+    }
+
+    const data: Notification[] = await response.json()
+    setNotifications(data)
+  } catch {
+    setNotifications([])
+  }
+}
+
     void checkBackend()
+    void loadNotifications()
   }, [])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -47,11 +68,14 @@ function App() {
       })
       const data = await response.json()
 
-      if (!response.ok || data.title !== title || data.content !== content) {
-        throw new Error('Unexpected notification response')
-      }
+    if (!response.ok || data.title !== title || data.content !== content) {
+      throw new Error('Unexpected notification response')
+    }
 
-      setSubmitStatus('success')
+    setSubmitStatus('success')
+    setNotifications((prev) => [...prev, data])
+    setTitle('')
+    setContent('')
     } catch {
       setSubmitStatus('error')
     }
@@ -112,7 +136,19 @@ function App() {
 
       <section className="panel" aria-labelledby="notice-list-heading">
         <h2 id="notice-list-heading">通知列表</h2>
-        <p className="empty-state">暂无通知</p>
+
+        {notifications.length === 0 ? (
+  <p className="empty-state">暂无通知</p>
+) : (
+  <ul>
+    {notifications.map((notification, index) => (
+      <li key={index}>
+        <strong>{notification.title}</strong>
+        <p>{notification.content}</p>
+      </li>
+    ))}
+  </ul>
+)}
       </section>
     </main>
   )
