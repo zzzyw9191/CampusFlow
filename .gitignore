@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+/desktop/out/
+/desktop/.runtime/
 *.local
 
 # Runtime SQLite database and sidecar files

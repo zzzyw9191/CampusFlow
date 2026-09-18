@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 import fastifyStatic from '@fastify/static'
-import { mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { accessSync, constants, mkdirSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
 type NotificationBody = {
@@ -19,9 +19,30 @@ export type ServerOptions = {
 }
 
 export function createServer(options: ServerOptions) {
+  const databasePath = resolve(options.databasePath)
+  const staticDir = options.staticDir === undefined ? undefined : resolve(options.staticDir)
+
+  if (staticDir !== undefined) {
+    try {
+      if (!statSync(staticDir).isDirectory()) throw new Error('路径不是目录')
+      if (!statSync(join(staticDir, 'index.html')).isFile()) {
+        throw new Error('index.html 不是文件')
+      }
+      accessSync(join(staticDir, 'index.html'), constants.R_OK)
+    } catch (error) {
+      throw new Error(`React 静态资源不可用：${staticDir}，请先构建前端`, { cause: error })
+    }
+  }
+
+  let db: DatabaseSync
+  try {
+    mkdirSync(dirname(databasePath), { recursive: true })
+    db = new DatabaseSync(databasePath)
+  } catch (error) {
+    throw new Error(`SQLite 数据库无法创建或打开：${databasePath}`, { cause: error })
+  }
+
   const app = Fastify()
-  mkdirSync(dirname(resolve(options.databasePath)), { recursive: true })
-  const db = new DatabaseSync(options.databasePath)
 
   app.addHook('onClose', async () => {
     db.close()
@@ -169,9 +190,9 @@ export function createServer(options: ServerOptions) {
       },
     )
 
-    if (options.staticDir !== undefined) {
+    if (staticDir !== undefined) {
       app.register(fastifyStatic, {
-        root: resolve(options.staticDir),
+        root: staticDir,
       })
     }
 

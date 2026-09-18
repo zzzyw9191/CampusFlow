@@ -1,0 +1,29 @@
+{
+  "name": "campusflow-desktop",
+  "productName": "CampusFlow",
+  "author": "zzzyw9191",
+  "description": "CampusFlow personal campus information hub",
+  "version": "0.4.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "build": "npm --prefix ../frontend run build && npm --prefix ../backend run build",
+    "prestart": "npm run build",
+    "start": "electron .",
+    "prepackage": "npm run build && node scripts/prepare-package.cjs",
+    "package": "electron-forge package --platform=win32 --arch=x64",
+    "premake": "npm run prepackage",
+    "make": "electron-forge make --platform=win32 --arch=x64"
+  },
+  "config": {
+    "forge": "./forge.config.cjs"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.11.2",
+    "@electron-forge/maker-squirrel": "^7.11.2",
+    "electron": "^44.4.2"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "^1.0.1"
+  }
+}
