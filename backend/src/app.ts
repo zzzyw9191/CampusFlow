@@ -3,6 +3,8 @@ import fastifyStatic from '@fastify/static'
 import { accessSync, constants, mkdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { createRawMessageRepository } from './data/raw-message-repository.js'
+import { createQqSource } from './sources/qq/qq-source.js'
 
 type NotificationBody = {
   title: string
@@ -44,13 +46,22 @@ export function createServer(options: ServerOptions) {
 
   const app = Fastify()
 
-  app.addHook('onClose', async () => {
-    db.close()
-  })
-
   try {
     const MAX_TITLE_LENGTH = 100
     const MAX_CONTENT_LENGTH = 5000
+    const rawMessageRepository = createRawMessageRepository(db)
+    const qqSource = createQqSource({
+      saveRawMessage: rawMessageRepository.saveRawMessage,
+    })
+
+    app.addHook('onListen', async () => {
+      qqSource.start()
+    })
+
+    app.addHook('onClose', async () => {
+      await qqSource.stop()
+      db.close()
+    })
 
     db.exec(`
       CREATE TABLE IF NOT EXISTS notifications (
