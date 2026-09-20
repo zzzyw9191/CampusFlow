@@ -7,6 +7,7 @@ const RECONNECT_DELAY_MS = 5_000
 type JsonObject = Record<string, unknown>
 
 type QqSourceOptions = {
+  allowedGroupIds: ReadonlySet<string>
   saveRawMessage: (message: RawMessage) => boolean
   url?: string
 }
@@ -20,20 +21,6 @@ function rawDataToText(data: RawData) {
   if (Buffer.isBuffer(data)) return data.toString('utf8')
   if (data instanceof ArrayBuffer) return Buffer.from(data).toString('utf8')
   return Buffer.concat(data).toString('utf8')
-}
-
-function formatValue(value: unknown) {
-  if (typeof value === 'string' || typeof value === 'number') return String(value)
-  return '未知'
-}
-
-function formatTime(value: unknown) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return formatValue(value)
-
-  return new Date(value * 1_000).toLocaleString('zh-CN', {
-    timeZone: 'Asia/Shanghai',
-    hour12: false,
-  })
 }
 
 function externalIdToString(value: unknown) {
@@ -73,22 +60,7 @@ function toRawMessage(event: JsonObject, rawPayload: string): RawMessage | null 
   }
 }
 
-function printGroupMessage(message: RawMessage) {
-  const senderName = message.senderName ?? '未知'
-
-  console.info(
-    [
-      '[QQ] 收到群消息',
-      `群号: ${message.conversationId}`,
-      `发送者: ${senderName} (${message.senderId})`,
-      `内容: ${message.content}`,
-      `消息ID: ${message.sourceMessageId}`,
-      `时间: ${formatTime(message.sentAt)}`,
-    ].join('\n'),
-  )
-}
-
-function handleMessage(data: RawData, saveRawMessage: QqSourceOptions['saveRawMessage']) {
+function handleMessage(data: RawData, options: QqSourceOptions) {
   const rawPayload = rawDataToText(data)
   let event: unknown
 
@@ -102,6 +74,19 @@ function handleMessage(data: RawData, saveRawMessage: QqSourceOptions['saveRawMe
   if (!isJsonObject(event)) return
   if (event.post_type !== 'message' || event.message_type !== 'group') return
 
+  const groupId = externalIdToString(event.group_id)
+  if (groupId === null) {
+    console.warn('[QQ] 忽略 group_id 不合法的群消息')
+    return
+  }
+
+  if (!options.allowedGroupIds.has(groupId)) {
+    console.info('[QQ] 非白名单群消息已忽略')
+    return
+  }
+
+  console.info('[QQ] 白名单群消息已进入处理流程')
+
   const message = toRawMessage(event, rawPayload)
   if (message === null) {
     console.warn('[QQ] 忽略字段不完整的群消息')
@@ -109,15 +94,15 @@ function handleMessage(data: RawData, saveRawMessage: QqSourceOptions['saveRawMe
   }
 
   try {
-    const saved = saveRawMessage(message)
-    if (!saved) console.debug(`[QQ] 忽略重复消息: ${message.sourceMessageId}`)
+    const saved = options.saveRawMessage(message)
+    if (!saved) console.debug('[QQ] 忽略重复的白名单群消息')
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error)
     console.error(`[QQ] 保存群消息失败: ${messageText}`)
     return
   }
 
-  printGroupMessage(message)
+  console.info('[QQ] 白名单群消息处理完成')
 }
 
 export function createQqSource(options: QqSourceOptions) {
@@ -150,7 +135,7 @@ export function createQqSource(options: QqSourceOptions) {
       console.info('[QQ] NapCat WebSocket connected')
     })
 
-    nextSocket.on('message', (data) => handleMessage(data, options.saveRawMessage))
+    nextSocket.on('message', (data) => handleMessage(data, options))
 
     nextSocket.on('close', () => {
       if (socket === nextSocket) socket = undefined

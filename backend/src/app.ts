@@ -3,6 +3,7 @@ import fastifyStatic from '@fastify/static'
 import { accessSync, constants, mkdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { loadQqSourceConfig } from './config/qq-source-config.js'
 import { createRawMessageRepository } from './data/raw-message-repository.js'
 import { createQqSource } from './sources/qq/qq-source.js'
 
@@ -17,12 +18,14 @@ type NotificationParams = {
 
 export type ServerOptions = {
   databasePath: string
+  qqSourceConfigPath?: string
   staticDir?: string
 }
 
 export function createServer(options: ServerOptions) {
   const databasePath = resolve(options.databasePath)
   const staticDir = options.staticDir === undefined ? undefined : resolve(options.staticDir)
+  const qqSourceConfig = loadQqSourceConfig(options.qqSourceConfigPath)
 
   if (staticDir !== undefined) {
     try {
@@ -51,6 +54,7 @@ export function createServer(options: ServerOptions) {
     const MAX_CONTENT_LENGTH = 5000
     const rawMessageRepository = createRawMessageRepository(db)
     const qqSource = createQqSource({
+      allowedGroupIds: qqSourceConfig.allowedGroupIds,
       saveRawMessage: rawMessageRepository.saveRawMessage,
     })
 

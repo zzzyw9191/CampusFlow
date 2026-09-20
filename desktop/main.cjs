@@ -22,6 +22,7 @@ function getRuntimePaths() {
   return {
     backendPath: path.join(resourceRoot, 'backend/dist/app.js'),
     databasePath: path.join(app.getPath('userData'), 'campusflow.db'),
+    qqSourceConfigPath: path.join(app.getPath('userData'), 'qq-source.local.json'),
     staticDir: path.join(resourceRoot, 'frontend/dist'),
   }
 }
@@ -36,7 +37,7 @@ function createWindow() {
 }
 
 const startup = app.whenReady().then(async () => {
-  const { backendPath, databasePath, staticDir } = getRuntimePaths()
+  const { backendPath, databasePath, qqSourceConfigPath, staticDir } = getRuntimePaths()
   console.info('CampusFlow 后端路径：', backendPath)
   console.info('CampusFlow 数据库路径：', databasePath)
   console.info('CampusFlow 静态资源路径：', staticDir)
@@ -47,6 +48,7 @@ const startup = app.whenReady().then(async () => {
 
   fastifyApp = createServer({
     databasePath,
+    qqSourceConfigPath,
     staticDir,
   })
 

@@ -25,6 +25,9 @@ campusflow.db-shm
 .env.*
 !.env.example
 
+# Local QQ source configuration
+/backend/qq-source.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

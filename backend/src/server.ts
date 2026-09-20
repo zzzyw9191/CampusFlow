@@ -4,12 +4,16 @@ import { createServer } from './app.js'
 try {
   // backend/src and frontend/dist are in separate directories.
   const databasePath = fileURLToPath(new URL('../campusflow.db', import.meta.url))
+  const qqSourceConfigPath = fileURLToPath(
+    new URL('../qq-source.local.json', import.meta.url),
+  )
   const staticDir = fileURLToPath(
   new URL('../../frontend/dist', import.meta.url)
   )
 
   const app = createServer({
     databasePath,
+    qqSourceConfigPath,
     staticDir,
   })
 
