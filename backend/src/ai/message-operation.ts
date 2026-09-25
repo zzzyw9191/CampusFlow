@@ -1,6 +1,6 @@
 import { z } from 'zod'
+import { campusItemKindSchema } from '../domain/campus-item.js'
 
-const trackableKindSchema = z.enum(['notification', 'task', 'event'])
 
 const entityDataSchema = z.object({
   title: z.string(),
@@ -37,24 +37,24 @@ const entityPatchSchema = z.object({
 export const messageOperationSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('create'),
-    kind: trackableKindSchema,
+    kind: campusItemKindSchema,
     data: entityDataSchema,
   }).strict(),
   z.object({
     action: z.literal('update'),
-    kind: trackableKindSchema,
+    kind: campusItemKindSchema,
     target: entityReferenceSchema,
     changes: entityPatchSchema,
   }).strict(),
   z.object({
     action: z.literal('cancel'),
-    kind: trackableKindSchema,
+    kind: campusItemKindSchema,
     target: entityReferenceSchema,
   }).strict(),
   z.object({ action: z.literal('none') }).strict(),
 ])
 
-export type TrackableKind = z.infer<typeof trackableKindSchema>
+export type TrackableKind = z.infer<typeof campusItemKindSchema>
 export type EntityData = z.infer<typeof entityDataSchema>
 export type EntityReference = z.infer<typeof entityReferenceSchema>
 export type EntityPatch = z.infer<typeof entityPatchSchema>
