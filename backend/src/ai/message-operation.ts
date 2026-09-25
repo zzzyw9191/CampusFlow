@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { campusItemKindSchema } from '../domain/campus-item.js'
-
+import { campusItemReferenceSchema } from '../domain/campus-item-reference.js'
 
 const entityDataSchema = z.object({
   title: z.string(),
@@ -10,17 +10,6 @@ const entityDataSchema = z.object({
   location: z.string().nullable(),
   description: z.string().nullable(),
 }).strict()
-
-const entityReferenceSchema = z.object({
-  title: z.string().optional(),
-  course: z.string().optional(),
-  deadline: z.string().optional(),
-  eventTime: z.string().optional(),
-  location: z.string().optional(),
-}).strict().refine(
-  (value) => Object.keys(value).length > 0 && Object.values(value).every((field) => field !== undefined),
-  'target 至少需要一个有效识别字段',
-)
 
 const entityPatchSchema = z.object({
   title: z.string().nullable().optional(),
@@ -43,19 +32,18 @@ export const messageOperationSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('update'),
     kind: campusItemKindSchema,
-    target: entityReferenceSchema,
+    target: campusItemReferenceSchema,
     changes: entityPatchSchema,
   }).strict(),
   z.object({
     action: z.literal('cancel'),
     kind: campusItemKindSchema,
-    target: entityReferenceSchema,
+    target: campusItemReferenceSchema,
   }).strict(),
   z.object({ action: z.literal('none') }).strict(),
 ])
 
 export type TrackableKind = z.infer<typeof campusItemKindSchema>
 export type EntityData = z.infer<typeof entityDataSchema>
-export type EntityReference = z.infer<typeof entityReferenceSchema>
 export type EntityPatch = z.infer<typeof entityPatchSchema>
 export type MessageOperation = z.infer<typeof messageOperationSchema>
