@@ -59,6 +59,19 @@ export function createCampusItemOperationRepository(db: DatabaseSync) {
       FOREIGN KEY (campus_item_id) REFERENCES campus_items(id)
     )
   `)
+  const duplicate = db.prepare(`
+    SELECT 1 FROM campus_item_operations
+    GROUP BY source, source_message_id
+    HAVING COUNT(*) > 1
+    LIMIT 1
+  `).get()
+  if (duplicate !== undefined) {
+    throw new Error('CampusItemOperation 历史存在重复 source + source_message_id，无法创建唯一索引')
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS campus_item_operations_source_message_unique
+    ON campus_item_operations(source, source_message_id)
+  `)
 
   const insertOperation = db.prepare(`
     INSERT INTO campus_item_operations (
@@ -82,6 +95,14 @@ export function createCampusItemOperationRepository(db: DatabaseSync) {
     FROM campus_item_operations
     WHERE id = ?
   `)
+  const selectOperationBySourceMessage = db.prepare(`
+    SELECT id, campus_item_id AS campusItemId, action, source,
+      source_message_id AS sourceMessageId,
+      before_state AS beforeState, after_state AS afterState,
+      created_at AS createdAt
+    FROM campus_item_operations
+    WHERE source = ? AND source_message_id = ?
+  `)
 
   return {
     recordCampusItemOperation(input: CreateCampusItemOperationInput): CampusItemOperation {
@@ -100,6 +121,13 @@ export function createCampusItemOperationRepository(db: DatabaseSync) {
     },
     findCampusItemOperations(campusItemId: number): CampusItemOperation[] {
       return selectOperations.all(campusItemId).map(toCampusItemOperation)
+    },
+    findCampusItemOperationBySourceMessage(
+      source: string,
+      sourceMessageId: string,
+    ): CampusItemOperation | null {
+      const row = selectOperationBySourceMessage.get(source, sourceMessageId)
+      return row === undefined ? null : toCampusItemOperation(row)
     },
   }
 }

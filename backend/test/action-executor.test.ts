@@ -87,6 +87,33 @@ test('none skips without changing either table or starting a mutation transactio
   }
 })
 
+test('replaying the same CREATE source message rolls back the second item', () => {
+  const db = new DatabaseSync(':memory:')
+  try {
+    const executor = createActionExecutor(db)
+    const first = executor.execute({ operation: createOperation, provenance })
+    assert.equal(first.status, 'created')
+    assert.throws(() => executor.execute({ operation: createOperation, provenance }),
+      /UNIQUE constraint failed/)
+    const rows = db.prepare('SELECT id FROM campus_items ORDER BY id').all()
+    assert.equal(rows.length, 1)
+    if (first.status === 'created') assert.equal(rows[0].id, first.item.id)
+    const audits = createCampusItemOperationRepository(db)
+    const audit = audits.findCampusItemOperationBySourceMessage(
+      provenance.source, provenance.sourceMessageId,
+    )
+    assert.ok(audit)
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM campus_item_operations').get()?.count, 1)
+    assert.equal(db.prepare(`
+      SELECT COUNT(*) AS count FROM campus_items AS item
+      LEFT JOIN campus_item_operations AS audit ON audit.campus_item_id = item.id
+      WHERE audit.id IS NULL
+    `).get()?.count, 0)
+  } finally {
+    db.close()
+  }
+})
+
 test('resolved update rereads by ID, applies three-state patch, and audits actual states', () => {
   const db = new DatabaseSync(':memory:')
   try {

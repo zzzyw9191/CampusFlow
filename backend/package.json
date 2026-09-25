@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
-    "test": "tsx --test test/ai-parser.test.ts test/context-resolver.test.ts test/campus-item-repository.test.ts test/candidate-finder.test.ts test/entity-resolver.test.ts test/campus-item-operation-repository.test.ts test/action-executor.test.ts",
+    "test": "tsx --test test/ai-parser.test.ts test/context-resolver.test.ts test/campus-item-repository.test.ts test/candidate-finder.test.ts test/entity-resolver.test.ts test/campus-item-operation-repository.test.ts test/action-executor.test.ts test/raw-message-processing.test.ts",
     "test:ai": "tsx src/scripts/test-ai-parser.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json"

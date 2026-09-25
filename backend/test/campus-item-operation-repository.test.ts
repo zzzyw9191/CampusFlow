@@ -132,3 +132,62 @@ test('find detects invalid JSON and invalid snapshot structure', () => {
     db.close()
   }
 })
+
+test('source and sourceMessageId form the unique mutation key and support exact lookup', () => {
+  const db = new DatabaseSync(':memory:')
+  try {
+    const items = createCampusItemRepository(db)
+    const item = items.createCampusItem(itemInput('第三章作业'))
+    const otherItem = items.createCampusItem(itemInput('第四章作业'))
+    const repository = createCampusItemOperationRepository(db)
+    const base = {
+      campusItemId: item.id, action: 'create' as const,
+      source: 'qq', sourceMessageId: 'message-1', beforeState: null,
+      afterState: toCampusItemStateSnapshot(item),
+    }
+    const first = repository.recordCampusItemOperation(base)
+    assert.deepEqual(repository.findCampusItemOperationBySourceMessage('qq', 'message-1'), first)
+    assert.equal(repository.findCampusItemOperationBySourceMessage('qq', 'missing'), null)
+    assert.equal(repository.findCampusItemOperationBySourceMessage('other', 'message-1'), null)
+    assert.throws(() => repository.recordCampusItemOperation(base), /UNIQUE constraint failed/)
+    assert.throws(() => repository.recordCampusItemOperation({
+      ...base, campusItemId: otherItem.id,
+    }), /UNIQUE constraint failed/)
+    const differentMessage = repository.recordCampusItemOperation({ ...base, sourceMessageId: 'message-2' })
+    const differentSource = repository.recordCampusItemOperation({ ...base, source: 'other' })
+    assert.notEqual(differentMessage.id, first.id)
+    assert.notEqual(differentSource.id, first.id)
+    assert.deepEqual(repository.findCampusItemOperationBySourceMessage('qq', 'message-2'), differentMessage)
+    assert.deepEqual(repository.findCampusItemOperationBySourceMessage('other', 'message-1'), differentSource)
+    createCampusItemOperationRepository(db)
+  } finally {
+    db.close()
+  }
+})
+
+test('legacy duplicate mutation keys fail closed before creating the unique index', () => {
+  const db = new DatabaseSync(':memory:')
+  try {
+    const item = createCampusItemRepository(db).createCampusItem(itemInput('第三章作业'))
+    db.exec(`
+      CREATE TABLE campus_item_operations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, campus_item_id INTEGER NOT NULL,
+        action TEXT NOT NULL, source TEXT NOT NULL, source_message_id TEXT NOT NULL,
+        before_state TEXT, after_state TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `)
+    const insert = db.prepare(`
+      INSERT INTO campus_item_operations
+        (campus_item_id, action, source, source_message_id, after_state)
+      VALUES (?, 'create', 'qq', 'duplicate', ?)
+    `)
+    const snapshot = JSON.stringify(toCampusItemStateSnapshot(item))
+    insert.run(item.id, snapshot)
+    insert.run(item.id, snapshot)
+    assert.throws(() => createCampusItemOperationRepository(db), /历史存在重复 source \+ source_message_id/)
+    assert.equal(db.prepare('SELECT COUNT(*) AS count FROM campus_item_operations').get()?.count, 2)
+  } finally {
+    db.close()
+  }
+})
