@@ -256,7 +256,8 @@ test('buildPrompt explains create, update patch, cancel, target old values and n
   assert.match(prompt, /create：当前消息引入此前不存在的新校园对象/)
   assert.match(prompt, /update：当前消息补充或修改已有对象/)
   assert.match(prompt, /changes 只包含当前消息真正改变的字段/)
-  assert.match(prompt, /字段不存在表示保持原值；字段为 null 仅表示当前消息明确清空该字段/)
+  assert.match(prompt, /字段不存在表示保持原值；course、deadline、eventTime、location、description 等可清空字段为 null 仅表示当前消息明确清空该字段/)
+  assert.match(prompt, /title 是必填业务字段，不得设为 null；不修改 title 时应省略该字段/)
   assert.match(prompt, /新值只放入 changes，不能误放进 target/)
   assert.match(prompt, /cancel：当前消息明确取消已有对象/)
   assert.match(prompt, /“收到”、闲聊、广告、无关信息[\s\S]*\{"action":"none"\}/)
@@ -290,6 +291,7 @@ test('MessageOperation schema rejects invalid or extra fields', () => {
     { action: 'none', data: { title: '伪造任务' } },
     { action: 'cancel', kind: 'event', target: { id: 1 } },
     { action: 'update', kind: 'task', target: { title: '作业' }, changes: { deadline: undefined } },
+    { action: 'update', kind: 'task', target: { title: '作业' }, changes: { title: null } },
   ]
 
   for (const operation of invalid) {

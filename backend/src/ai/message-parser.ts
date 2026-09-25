@@ -42,7 +42,7 @@ export function buildPrompt(context: MessageContext): string {
 操作规则：
 - create：当前消息引入此前不存在的新校园对象。data 必须包含 title、course、deadline、eventTime、location、description；未知字段填 null。
 - update：当前消息补充或修改已有对象。必须包含 target 和 changes；changes 只包含当前消息真正改变的字段。例如历史“人工智能第三章作业周五23:59交”，当前“改到下周一”，应返回 update task，target 指向旧作业，changes 只含新的 deadline。历史“第三章作业周五交学习通”，当前“改到下周一”，不能把已有 course、description、location 复制进 changes。
-- update 的 changes 中字段不存在表示保持原值；字段为 null 仅表示当前消息明确清空该字段。“未知”不能用 null 表示修改。补充提交方式时，用 changes.description 表达新方式，不把学习通等平台放进 location。
+- update 的 changes 中字段不存在表示保持原值；course、deadline、eventTime、location、description 等可清空字段为 null 仅表示当前消息明确清空该字段。“未知”不能用 null 表示修改。title 是必填业务字段，不得设为 null；不修改 title 时应省略该字段。补充提交方式时，用 changes.description 表达新方式，不把学习通等平台放进 location。
 - cancel：当前消息明确取消已有对象。历史“明天下午两点信息楼302开班会”，当前“明天班会取消”应返回 cancel event，target 指向旧班会。本阶段只表达取消语义，不执行数据库删除或状态修改。
 - none：“收到”、闲聊、广告、无关信息，或无法可靠识别所指已有对象的修改/取消消息，返回且仅返回 {"action":"none"}；不能附带 kind、target、changes 或 data。
 - target 只描述被引用的旧对象，不是数据库实体；不得包含 id 或 targetId。只填当前消息和可靠上下文中能确定、且有助于识别旧对象的 title、course、旧 deadline、旧 eventTime、旧 location。新值只放入 changes，不能误放进 target。

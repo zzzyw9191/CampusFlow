@@ -6,6 +6,16 @@ import {
   type CampusItemKind,
   type CreateCampusItemInput,
 } from '../domain/campus-item.js'
+import { campusItemPatchSchema, type CampusItemPatch } from '../domain/campus-item-patch.js'
+
+const patchColumns = {
+  title: 'title',
+  course: 'course',
+  deadline: 'deadline',
+  eventTime: 'event_time',
+  location: 'location',
+  description: 'description',
+} as const
 
 export type FindActiveCampusItemsOptions = {
   kind: CampusItemKind
@@ -118,6 +128,11 @@ export function createCampusItemRepository(db: DatabaseSync) {
     ORDER BY updated_at DESC, id DESC
     LIMIT ?
   `)
+  const cancelActiveCampusItem = db.prepare(`
+    UPDATE campus_items
+    SET status = 'cancelled', cancelled_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND status = 'active'
+  `)
 
   function findCampusItemById(id: number): CampusItem | null {
     const row = selectCampusItemById.get(id)
@@ -144,6 +159,29 @@ export function createCampusItemRepository(db: DatabaseSync) {
       return item
     },
     findCampusItemById,
+    updateCampusItem(id: number, patch: CampusItemPatch): CampusItem | null {
+      const changes = campusItemPatchSchema.parse(patch)
+      const assignments: string[] = []
+      const values: (string | null)[] = []
+      for (const field of Object.keys(patchColumns) as (keyof CampusItemPatch)[]) {
+        if (!Object.hasOwn(changes, field)) continue
+        const value = changes[field]
+        if (value === undefined) continue
+        assignments.push(`${patchColumns[field]} = ?`)
+        values.push(value)
+      }
+
+      const result = db.prepare(`
+        UPDATE campus_items
+        SET ${assignments.join(', ')}, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(...values, id)
+      return result.changes === 0 ? null : findCampusItemById(id)
+    },
+    cancelCampusItem(id: number): CampusItem | null {
+      cancelActiveCampusItem.run(id)
+      return findCampusItemById(id)
+    },
     findActiveCampusItems(options: FindActiveCampusItemsOptions): CampusItem[] {
       if (!Number.isSafeInteger(options.limit) || options.limit <= 0) {
         throw new RangeError('查询数量必须是正安全整数')

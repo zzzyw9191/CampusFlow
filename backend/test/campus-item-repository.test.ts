@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite'
 import test from 'node:test'
 import { createCampusItemRepository } from '../src/data/campus-item-repository.js'
 import type { CreateCampusItemInput } from '../src/domain/campus-item.js'
+import { campusItemPatchSchema } from '../src/domain/campus-item-patch.js'
 
 function input(kind: CreateCampusItemInput['kind']): CreateCampusItemInput {
   return {
@@ -179,6 +180,86 @@ test('active item query maps rows through the same validation as findById', () =
       }),
       /CampusItem 数据库行格式不合法/,
     )
+  } finally {
+    db.close()
+  }
+})
+
+test('update changes only supplied fields, supports null, and refreshes updatedAt', () => {
+  const db = new DatabaseSync(':memory:')
+  try {
+    const repository = createCampusItemRepository(db)
+    const original = repository.createCampusItem({
+      ...input('task'), course: '人工智能', deadline: '2026-09-28',
+      location: '信息楼302', description: '旧说明',
+    })
+    db.prepare('UPDATE campus_items SET updated_at = ? WHERE id = ?')
+      .run('2020-01-01 00:00:00', original.id)
+
+    const single = repository.updateCampusItem(original.id, { course: '概率论' })
+    assert.ok(single)
+    assert.equal(single.course, '概率论')
+    assert.equal(single.deadline, original.deadline)
+    assert.equal(single.location, original.location)
+    assert.notEqual(single.updatedAt, '2020-01-01 00:00:00')
+
+    const multiple = repository.updateCampusItem(original.id, {
+      title: '新标题', deadline: null, description: '新说明',
+    })
+    assert.ok(multiple)
+    assert.equal(multiple.title, '新标题')
+    assert.equal(multiple.deadline, null)
+    assert.equal(multiple.description, '新说明')
+    assert.equal(multiple.course, '概率论')
+    assert.equal(multiple.location, '信息楼302')
+    for (const field of ['id', 'kind', 'status', 'source', 'conversationId',
+      'originSourceMessageId', 'createdAt', 'cancelledAt'] as const) {
+      assert.equal(multiple[field], original[field])
+    }
+    assert.deepEqual(repository.findCampusItemById(original.id), multiple)
+  } finally {
+    db.close()
+  }
+})
+
+test('update rejects empty or forbidden patches and returns null for a missing ID', () => {
+  const db = new DatabaseSync(':memory:')
+  try {
+    const repository = createCampusItemRepository(db)
+    const original = repository.createCampusItem(input('task'))
+    assert.throws(() => repository.updateCampusItem(original.id, {}), /changes 至少需要一个有效修改字段/)
+    assert.throws(() => repository.updateCampusItem(original.id, { status: 'cancelled' } as never))
+    assert.throws(() => repository.updateCampusItem(original.id, { course: undefined } as never))
+    assert.throws(() => repository.updateCampusItem(original.id, { title: null } as never))
+    assert.deepEqual(repository.findCampusItemById(original.id), original)
+    assert.equal(repository.updateCampusItem(999, { course: '概率论' }), null)
+  } finally {
+    db.close()
+  }
+})
+
+test('CampusItemPatch accepts a title string and nullable field clearing, but rejects a null title', () => {
+  assert.deepEqual(campusItemPatchSchema.parse({ title: '新标题' }), { title: '新标题' })
+  assert.deepEqual(campusItemPatchSchema.parse({ location: null }), { location: null })
+  assert.equal(campusItemPatchSchema.safeParse({ title: null }).success, false)
+})
+
+test('cancel sets status and timestamp once and returns null for a missing ID', () => {
+  const db = new DatabaseSync(':memory:')
+  try {
+    const repository = createCampusItemRepository(db)
+    const original = repository.createCampusItem(input('task'))
+    db.prepare('UPDATE campus_items SET updated_at = ? WHERE id = ?')
+      .run('2020-01-01 00:00:00', original.id)
+
+    const cancelled = repository.cancelCampusItem(original.id)
+    assert.ok(cancelled)
+    assert.equal(cancelled.status, 'cancelled')
+    assert.match(cancelled.cancelledAt ?? '', /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/)
+    assert.notEqual(cancelled.updatedAt, '2020-01-01 00:00:00')
+    assert.equal(cancelled.updatedAt, cancelled.cancelledAt)
+    assert.deepEqual(repository.cancelCampusItem(original.id), cancelled)
+    assert.equal(repository.cancelCampusItem(999), null)
   } finally {
     db.close()
   }
